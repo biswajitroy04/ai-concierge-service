@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: concierge-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: hotel_concierge
+      MYSQL_USER: concierge_user
+      MYSQL_PASSWORD: concierge_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/src/main/resources/db/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - concierge-net
+
+  # Weaviate Vector Database
+  weaviate:
+    image: semitechnologies/weaviate:1.24.8
+    container_name: concierge-weaviate
+    ports:
+      - "8081:8080"
+      - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - concierge-net
+
+  # AI Concierge Application
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: concierge-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USERNAME: concierge_user
+      DB_PASSWORD: concierge_pass
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hotel_concierge?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-demo}
+      JWT_SECRET: ${JWT_SECRET:-YWktY29uY2llcmdlLXNlcnZpY2Utc2VjcmV0LWtleS1mb3ItaG90ZWwtcGxhdGZvcm0tMjAyNA==}
+      QR_BASE_URL: http://localhost:8080
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - concierge-net
+
+volumes:
+  mysql_data:
+  weaviate_data:
+
+networks:
+  concierge-net:
+    driver: bridge

@@ -1,0 +1,319 @@
+# Weaviate Schema and Embeddings Runbook (Docker Desktop + PowerShell)
+
+This runbook shows how to:
+1. Start Weaviate in Docker
+2. Create the `HotelDocumentChunk` schema manually ("table" equivalent in vector DB)
+3. Start the Spring Boot app
+4. Generate and store embeddings by ingesting files
+5. Verify vectors and similarity search
+
+## Terminal compatibility
+
+You are running commands in Windows PowerShell. Use the PowerShell commands in this runbook.
+
+Why some commands fail in PowerShell:
+- `|| true` is Bash syntax, not PowerShell.
+- `\` line continuation is Bash syntax, not PowerShell.
+- In PowerShell, each command argument line must end with a backtick `` ` `` if split across lines.
+- Prefer `curl.exe` over `curl` in PowerShell to avoid alias conflicts with `Invoke-WebRequest`.
+
+---
+
+## 1) Start Weaviate in Docker
+
+Use a dedicated host port (`8081`) for Weaviate to avoid conflict with Spring Boot (`8080`).
+
+**PowerShell:**
+```powershell
+docker rm -f weaviate
+docker run -d --name weaviate `
+  -p 8081:8080 `
+  -e QUERY_DEFAULTS_LIMIT=25 `
+  -e AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true `
+  -e PERSISTENCE_DATA_PATH=/var/lib/weaviate `
+  -e DEFAULT_VECTORIZER_MODULE=none `
+  -e ENABLE_MODULES= `
+  cr.weaviate.io/semitechnologies/weaviate:1.26.5
+```
+
+**Bash:**
+```bash
+docker rm -f weaviate >/dev/null 2>&1 || true
+docker run -d --name weaviate \
+  -p 8081:8080 \
+  -e QUERY_DEFAULTS_LIMIT=25 \
+  -e AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true \
+  -e PERSISTENCE_DATA_PATH=/var/lib/weaviate \
+  -e DEFAULT_VECTORIZER_MODULE=none \
+  -e ENABLE_MODULES= \
+  cr.weaviate.io/semitechnologies/weaviate:1.26.5
+```
+
+**Health check:**
+
+PowerShell:
+```powershell
+Invoke-RestMethod http://localhost:8081/v1/.well-known/ready
+```
+
+Bash:
+```bash
+curl http://localhost:8081/v1/.well-known/ready
+```
+
+Expected: JSON with ready status.
+
+---
+
+## 2) Configure the Spring app to point to Weaviate
+
+In `src/main/resources/application.yml`:
+```yaml
+app:
+  weaviate:
+    scheme: http
+    host: localhost:8081
+    class-name: HotelDocumentChunk
+    top-k: 5
+```
+
+---
+
+## 3) Create vector schema (manual)
+
+The app's `WeaviateEmbeddingStore` auto-creates the class at runtime. Use this section if you want explicit manual control or need to reset.
+
+**PowerShell:**
+```powershell
+$schema = @'
+{
+  "class": "HotelDocumentChunk",
+  "description": "Hotel knowledge base document chunks for RAG",
+  "vectorizer": "none",
+  "properties": [
+    { "name": "text", "dataType": ["text"], "description": "The text content of the document chunk" },
+    { "name": "fileName", "dataType": ["text"], "description": "Source file name" },
+    { "name": "category", "dataType": ["text"], "description": "Document category (faq, amenities, policies, menu, spa)" },
+    { "name": "chunkIndex", "dataType": ["int"], "description": "Index of this chunk within the source document" },
+    { "name": "uploadedAt", "dataType": ["text"], "description": "Timestamp when the document was uploaded" }
+  ]
+}
+'@
+
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/v1/schema" -ContentType "application/json" -Body $schema
+```
+
+**Bash:**
+```bash
+curl -X POST http://localhost:8081/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "HotelDocumentChunk",
+    "description": "Hotel knowledge base document chunks for RAG",
+    "vectorizer": "none",
+    "properties": [
+      { "name": "text", "dataType": ["text"], "description": "The text content of the document chunk" },
+      { "name": "fileName", "dataType": ["text"], "description": "Source file name" },
+      { "name": "category", "dataType": ["text"], "description": "Document category (faq, amenities, policies, menu, spa)" },
+      { "name": "chunkIndex", "dataType": ["int"], "description": "Index of this chunk within the source document" },
+      { "name": "uploadedAt", "dataType": ["text"], "description": "Timestamp when the document was uploaded" }
+    ]
+  }'
+```
+
+---
+
+## 4) Verify schema was created
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8081/v1/schema/HotelDocumentChunk
+```
+
+**Bash:**
+```bash
+curl http://localhost:8081/v1/schema/HotelDocumentChunk
+```
+
+**List all schema classes:**
+
+PowerShell:
+```powershell
+Invoke-RestMethod http://localhost:8081/v1/schema
+```
+
+Bash:
+```bash
+curl http://localhost:8081/v1/schema
+```
+
+---
+
+## 5) Delete class (reset)
+
+Use this to wipe all vectors and start fresh.
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod -Method Delete -Uri "http://localhost:8081/v1/schema/HotelDocumentChunk"
+```
+
+**Bash:**
+```bash
+curl -X DELETE http://localhost:8081/v1/schema/HotelDocumentChunk
+```
+
+Then re-create using step 3.
+
+---
+
+## 6) Start the Spring Boot app
+
+From the `backend` folder:
+```bash
+mvn clean spring-boot:run
+```
+
+---
+
+## 7) Generate embeddings and store vectors
+
+Embeddings are generated by LangChain4J's `EmbeddingModel` and stored in Weaviate through `WeaviateEmbeddingStore` when calling the RAG upload endpoints.
+
+### Option A: Upload via UI
+
+Open the app frontend, go to the **RAG** tab, and either:
+- Upload a `.txt` / `.md` / `.csv` file with a category
+- Click "Load Default Hotel Documents" to ingest the 5 bundled files
+
+### Option B: Upload via API
+
+**PowerShell:**
+```powershell
+curl.exe -X POST http://localhost:8080/api/rag/upload `
+  -F "file=@C:/path/to/hotel-faqs.txt" `
+  -F "category=faq"
+```
+
+**Bash:**
+```bash
+curl -X POST http://localhost:8080/api/rag/upload \
+  -F "file=@/path/to/hotel-faqs.txt" \
+  -F "category=faq"
+```
+
+### Option C: Ingest all default documents at once
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/rag/ingest-defaults"
+```
+
+**Bash:**
+```bash
+curl -X POST http://localhost:8080/api/rag/ingest-defaults
+```
+
+**What happens internally:**
+1. Text file is read
+2. Text is chunked (500 chars, 50 overlap) using LangChain4J `DocumentSplitters.recursive()`
+3. Each chunk gets an embedding via OpenAI `text-embedding-3-small`
+4. Each chunk is written to Weaviate as `HotelDocumentChunk` with metadata (fileName, category, chunkIndex, uploadedAt)
+
+---
+
+## 8) Verify stored objects and vectors
+
+**Query latest objects:**
+
+PowerShell:
+```powershell
+curl.exe -X POST http://localhost:8081/v1/graphql `
+  -H "Content-Type: application/json" `
+  -d "{`"query`":`"{ Get { HotelDocumentChunk(limit: 5) { text fileName category chunkIndex _additional { id vector } } } }`"}"
+```
+
+Bash:
+```bash
+curl -X POST http://localhost:8081/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ Get { HotelDocumentChunk(limit: 5) { text fileName category chunkIndex _additional { id vector } } } }"}'
+```
+
+**Check object count:**
+
+PowerShell:
+```powershell
+curl.exe -X POST http://localhost:8081/v1/graphql `
+  -H "Content-Type: application/json" `
+  -d "{`"query`":`"{ Aggregate { HotelDocumentChunk { meta { count } } } }`"}"
+```
+
+Bash:
+```bash
+curl -X POST http://localhost:8081/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ Aggregate { HotelDocumentChunk { meta { count } } } }"}'
+```
+
+---
+
+## 9) Verify similarity retrieval (RAG path)
+
+Use the chat endpoint (triggers query embedding → vector similarity search top-k → LLM answer):
+
+**PowerShell:**
+```powershell
+curl.exe -X POST http://localhost:8080/api/chat/message `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer <your-token>" `
+  -d "{`"message`":`"What is the cancellation policy?`",`"sessionId`":`"test-session`"}"
+```
+
+**Bash:**
+```bash
+curl -X POST http://localhost:8080/api/chat/message \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{"message":"What is the cancellation policy?","sessionId":"test-session"}'
+```
+
+---
+
+## 10) List uploaded documents
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8080/api/rag/documents
+```
+
+**Bash:**
+```bash
+curl http://localhost:8080/api/rag/documents
+```
+
+---
+
+## 11) Get vector store stats
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod http://localhost:8080/api/rag/stats
+```
+
+**Bash:**
+```bash
+curl http://localhost:8080/api/rag/stats
+```
+
+---
+
+## 12) Operational tips
+
+- Keep Weaviate on `8081` and app on `8080` to avoid port collisions.
+- If you change schema fields, delete and recreate class for a clean index.
+- In PowerShell, prefer `curl.exe` when posting multipart/form-data to avoid alias behavior differences.
+- Use backtick `` ` `` for line continuation in PowerShell (not `\`).
+- Path tip for PowerShell file uploads: use forward slashes `C:/docs/file.txt` or escape backslashes.
+- If `curl` is missing in Docker Desktop Linux terminal, use `wget -qO-` or run from Git Bash/WSL.
+- The app auto-creates the Weaviate class via `WeaviateEmbeddingStore` if it doesn't exist. Manual creation is optional but gives you explicit control over the schema.

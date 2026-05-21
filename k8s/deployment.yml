@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-concierge
+  namespace: hotel-concierge
+  labels:
+    app: ai-concierge
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-concierge
+  template:
+    metadata:
+      labels:
+        app: ai-concierge
+    spec:
+      containers:
+        - name: ai-concierge
+          image: ai-concierge-service:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "kubernetes"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: concierge-secrets
+                  key: db-username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: concierge-secrets
+                  key: db-password
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: concierge-secrets
+                  key: openai-api-key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: concierge-secrets
+                  key: jwt-secret
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: concierge-config
+                  key: database-url
+            - name: WEAVIATE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: concierge-config
+                  key: weaviate-host
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-concierge-service
+  namespace: hotel-concierge
+spec:
+  selector:
+    app: ai-concierge
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-concierge-ingress
+  namespace: hotel-concierge
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "60"
+spec:
+  rules:
+    - host: concierge.hotel.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-concierge-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - concierge.hotel.com
+      secretName: concierge-tls
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: concierge-config
+  namespace: hotel-concierge
+data:
+  database-url: "jdbc:mysql://mysql-service:3306/hotel_concierge?useSSL=true&serverTimezone=UTC"
+  weaviate-host: "weaviate-service"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: concierge-secrets
+  namespace: hotel-concierge
+type: Opaque
+data:
+  db-username: Y29uY2llcmdlX3VzZXI=
+  db-password: Y29uY2llcmdlX3Bhc3M=
+  openai-api-key: eW91ci1vcGVuYWktYXBpLWtleQ==
+  jwt-secret: YWktY29uY2llcmdlLXNlcnZpY2Utc2VjcmV0LWtleS1mb3ItaG90ZWwtcGxhdGZvcm0tMjAyNA==

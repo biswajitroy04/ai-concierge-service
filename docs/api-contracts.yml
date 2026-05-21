@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: AI Concierge Hotel Platform API
+  description: Enterprise AI-powered concierge service for luxury hotels
+  version: 1.0.0
+  contact:
+    name: Hotel Tech Team
+    email: tech@grandmeridian.com
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development
+  - url: https://concierge.hotel.com/api
+    description: Production
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate and get JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid credentials
+
+  /chat/guest:
+    get:
+      tags: [Chat]
+      summary: Initialize guest chat via QR token
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chat session initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Invalid or expired token
+
+  /chat/message:
+    post:
+      tags: [Chat]
+      summary: Send message to AI concierge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '429':
+          description: Rate limit exceeded
+
+  /qr/generate/{reservationId}:
+    post:
+      tags: [QR Code]
+      summary: Generate QR code for reservation
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: QR code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeResponse'
+
+  /dashboard/stats/{hotelId}:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard statistics
+      parameters:
+        - name: hotelId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+
+  /webhook/whatsapp:
+    post:
+      tags: [Webhooks]
+      summary: Twilio WhatsApp webhook
+      security: []
+      parameters:
+        - name: From
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: Body
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TwiML response
+          content:
+            application/xml:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        tokenType:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        sessionId:
+          type: string
+        language:
+          type: string
+
+    ChatResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        message:
+          type: string
+        sentiment:
+          type: string
+        sentimentScore:
+          type: number
+          format: double
+        quickActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickAction'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationCard'
+        escalated:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+    QuickAction:
+      type: object
+      properties:
+        label:
+          type: string
+        action:
+          type: string
+        icon:
+          type: string
+
+    RecommendationCard:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+
+    QrCodeResponse:
+      type: object
+      properties:
+        qrCodeBase64:
+          type: string
+        token:
+          type: string
+        chatUrl:
+          type: string
+        expiresInSeconds:
+          type: integer
+          format: int64
+        reservationId:
+          type: string
+        guestName:
+          type: string
+
+    DashboardStats:
+      type: object
+      properties:
+        activeConversations:
+          type: integer
+        totalConversationsToday:
+          type: integer
+        pendingEscalations:
+          type: integer
+        housekeepingPending:
+          type: integer
+        averageSentiment:
+          type: number
+          format: double
+        sentimentDistribution:
+          type: object
+          additionalProperties:
+            type: integer

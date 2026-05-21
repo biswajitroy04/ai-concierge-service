@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Grand Meridian | AI Concierge</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- QR Onboarding Screen -->
+    <div id="onboarding-screen" class="screen active">
+        <div class="onboarding-container">
+            <div class="hotel-logo">
+                <i class="fas fa-concierge-bell"></i>
+                <h1>The Grand Meridian</h1>
+                <p class="tagline">Your Personal AI Concierge</p>
+            </div>
+            <div class="qr-section glass-card">
+                <!-- QR Generation Section -->
+                <div class="qr-generate-section">
+                    <h3 style="color: var(--gold); margin-bottom: 12px; font-size: 16px;">
+                        <i class="fas fa-qrcode"></i> Generate QR Code
+                    </h3>
+                    <select id="reservation-select" class="reservation-dropdown">
+                        <option value="">-- Select a Reservation --</option>
+                    </select>
+                    <button id="btn-generate-qr" class="btn-gold full-width" style="margin-top: 12px;">
+                        <i class="fas fa-qrcode"></i> Generate QR Code
+                    </button>
+                </div>
+
+                <!-- QR Display -->
+                <div class="qr-placeholder" id="qr-display">
+                    <i class="fas fa-qrcode"></i>
+                    <p>Select a reservation to generate QR</p>
+                </div>
+                <div id="qr-guest-info" class="qr-guest-info" style="display: none;"></div>
+
+                <!-- Manual Token Entry -->
+                <div class="manual-entry">
+                    <p>Or enter your access token to start chat:</p>
+                    <div class="token-input-group">
+                        <input type="text" id="token-input" placeholder="Enter token or confirmation number">
+                        <button id="btn-connect" class="btn-gold">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="demo-section" style="display: none;">
+                <button id="btn-demo" class="btn-outline">Try Demo Experience</button>
+            </div>
+            <div class="admin-login-section" style="margin-top: 16px;">
+                <button id="btn-admin-onboarding" class="btn-outline full-width">
+                    <i class="fas fa-lock"></i> Admin Login
+                </button>
+            </div>
+            <div class="services-toggle">
+                <button id="btn-services-toggle" class="btn-outline full-width">
+                    <i class="fas fa-concierge-bell"></i> Our Services <i class="fas fa-chevron-down toggle-arrow"></i>
+                </button>
+                <div class="services-menu" id="services-menu" style="display: none;">
+                    <div class="service-item"><i class="fas fa-bell-concierge"></i><span>24/7 Service</span></div>
+                    <div class="service-item"><i class="fas fa-spa"></i><span>Spa Booking</span></div>
+                    <div class="service-item"><i class="fas fa-utensils"></i><span>Dining</span></div>
+                    <div class="service-item"><i class="fas fa-map-marked-alt"></i><span>Local Guide</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Screen -->
+    <div id="chat-screen" class="screen">
+        <div class="chat-container">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="header-left">
+                    <button id="btn-back" class="btn-icon">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="concierge-avatar">
+                        <i class="fas fa-concierge-bell"></i>
+                        <span class="status-dot online"></span>
+                    </div>
+                    <div class="header-info">
+                        <h3>Grand Meridian Concierge</h3>
+                        <span class="status-text">Online • AI Powered</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button id="btn-menu" class="btn-icon">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chat-messages">
+                <!-- Messages will be inserted here -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                <div class="typing-avatar">
+                    <i class="fas fa-concierge-bell"></i>
+                </div>
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions" id="quick-actions">
+                <button class="quick-btn" data-action="housekeeping">
+                    <i class="fas fa-broom"></i> Housekeeping
+                </button>
+                <button class="quick-btn" data-action="spa">
+                    <i class="fas fa-spa"></i> Spa
+                </button>
+                <button class="quick-btn" data-action="restaurant">
+                    <i class="fas fa-utensils"></i> Restaurant
+                </button>
+                <button class="quick-btn" data-action="late_checkout">
+                    <i class="fas fa-clock"></i> Late Checkout
+                </button>
+                <button class="quick-btn" data-action="attractions">
+                    <i class="fas fa-map-marker-alt"></i> Attractions
+                </button>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <button class="btn-icon attach-btn">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off">
+                    <button id="btn-send" class="btn-send">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard Screen -->
+    <div id="dashboard-screen" class="screen">
+        <div class="dashboard-container">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <div class="dash-header-left">
+                    <h2><i class="fas fa-concierge-bell"></i> AI Concierge Dashboard</h2>
+                    <span class="hotel-name">The Grand Meridian</span>
+                </div>
+                <div class="dash-header-right">
+                    <span class="live-indicator"><span class="pulse"></span> Live</span>
+                    <button id="btn-admin-logout" class="btn-outline-sm">Logout</button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card glass-card">
+                    <div class="stat-icon conversations"><i class="fas fa-comments"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-active-convos">0</span>
+                        <span class="stat-label">Active Conversations</span>
+                    </div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-icon sentiment"><i class="fas fa-smile"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-sentiment">0.0</span>
+                        <span class="stat-label">Avg Sentiment</span>
+                    </div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-icon escalations"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-escalations">0</span>
+                        <span class="stat-label">Pending Escalations</span>
+                    </div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-icon housekeeping"><i class="fas fa-broom"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-housekeeping">0</span>
+                        <span class="stat-label">Housekeeping Queue</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-grid">
+                <!-- Active Conversations Panel -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-comments"></i> Active Conversations</h3>
+                        <span class="badge" id="convo-count">0</span>
+                    </div>
+                    <div class="panel-content" id="conversations-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Escalation Alerts Panel -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-exclamation-circle"></i> Escalation Alerts</h3>
+                        <span class="badge alert" id="escalation-count">0</span>
+                    </div>
+                    <div class="panel-content" id="escalations-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Sentiment Monitor -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-chart-line"></i> Sentiment Monitor</h3>
+                    </div>
+                    <div class="panel-content">
+                        <div class="sentiment-bars" id="sentiment-chart">
+                            <div class="sentiment-bar">
+                                <span class="bar-label">Very Positive</span>
+                                <div class="bar-track"><div class="bar-fill positive" style="width: 35%"></div></div>
+                                <span class="bar-value">35%</span>
+                            </div>
+                            <div class="sentiment-bar">
+                                <span class="bar-label">Positive</span>
+                                <div class="bar-track"><div class="bar-fill positive" style="width: 40%"></div></div>
+                                <span class="bar-value">40%</span>
+                            </div>
+                            <div class="sentiment-bar">
+                                <span class="bar-label">Neutral</span>
+                                <div class="bar-track"><div class="bar-fill neutral" style="width: 15%"></div></div>
+                                <span class="bar-value">15%</span>
+                            </div>
+                            <div class="sentiment-bar">
+                                <span class="bar-label">Negative</span>
+                                <div class="bar-track"><div class="bar-fill negative" style="width: 8%"></div></div>
+                                <span class="bar-value">8%</span>
+                            </div>
+                            <div class="sentiment-bar">
+                                <span class="bar-label">Very Negative</span>
+                                <div class="bar-track"><div class="bar-fill very-negative" style="width: 2%"></div></div>
+                                <span class="bar-value">2%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Housekeeping Tickets -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-broom"></i> Housekeeping Tickets</h3>
+                    </div>
+                    <div class="panel-content" id="housekeeping-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Spa Bookings Panel -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-spa"></i> Spa Bookings</h3>
+                    </div>
+                    <div class="panel-content" id="spa-bookings-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Restaurant Bookings Panel -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-utensils"></i> Restaurant Bookings</h3>
+                    </div>
+                    <div class="panel-content" id="restaurant-bookings-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div id="admin-login-modal" class="modal" style="display: none;">
+        <div class="modal-content glass-card">
+            <h3><i class="fas fa-lock"></i> Admin Login</h3>
+            <form id="admin-login-form">
+                <div class="form-group">
+                    <input type="text" id="admin-username" placeholder="Username" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="admin-password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn-gold full-width">Sign In</button>
+            </form>
+            <button class="btn-close-modal" id="close-modal">&times;</button>
+        </div>
+    </div>
+
+    <!-- RAG Management Screen -->
+    <div id="rag-screen" class="screen">
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <div class="dash-header-left">
+                    <h2><i class="fas fa-database"></i> RAG Knowledge Base</h2>
+                    <span class="hotel-name">Weaviate Vector Store Management</span>
+                </div>
+                <div class="dash-header-right">
+                    <span class="live-indicator" id="rag-status"><span class="pulse"></span> Connected</span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card glass-card">
+                    <div class="stat-icon conversations"><i class="fas fa-file-alt"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="rag-doc-count">0</span>
+                        <span class="stat-label">Documents Uploaded</span>
+                    </div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-icon sentiment"><i class="fas fa-puzzle-piece"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="rag-chunk-count">0</span>
+                        <span class="stat-label">Total Chunks</span>
+                    </div>
+                </div>
+                <div class="stat-card glass-card">
+                    <div class="stat-icon housekeeping"><i class="fas fa-server"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="rag-class-name">-</span>
+                        <span class="stat-label">Weaviate Class</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="dashboard-grid">
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-upload"></i> Upload Document</h3>
+                    </div>
+                    <div class="panel-content">
+                        <div class="rag-upload-form">
+                            <div class="form-group">
+                                <label class="upload-label">Category</label>
+                                <select id="rag-category" class="reservation-dropdown">
+                                    <option value="faq">FAQ</option>
+                                    <option value="amenities">Amenities</option>
+                                    <option value="policies">Policies</option>
+                                    <option value="menu">Restaurant Menu</option>
+                                    <option value="spa">Spa Services</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="upload-label">File (.txt, .md, .csv, .pdf, .docx)</label>
+                                <div class="file-drop-zone" id="file-drop-zone">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Drag & drop or click to select</p>
+                                    <input type="file" id="rag-file-input" accept=".txt,.md,.csv,.pdf,.docx" hidden>
+                                </div>
+                                <span class="file-name-display" id="selected-file-name"></span>
+                            </div>
+                            <button id="btn-upload-rag" class="btn-gold full-width">
+                                <i class="fas fa-upload"></i> Upload to Vector Store
+                            </button>
+                            <div class="upload-divider">
+                                <span>or</span>
+                            </div>
+                            <button id="btn-ingest-defaults" class="btn-outline full-width">
+                                <i class="fas fa-magic"></i> Load Default Hotel Documents
+                            </button>
+                        </div>
+                        <div id="upload-result" class="upload-result" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- Documents List -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-list"></i> Loaded Documents</h3>
+                        <button id="btn-refresh-docs" class="btn-icon"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                    <div class="panel-content" id="rag-documents-list">
+                        <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                            No documents loaded yet. Upload files or load defaults.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bottom-nav" id="bottom-nav">
+        <button class="nav-btn active" data-screen="chat-screen">
+            <i class="fas fa-comments"></i>
+            <span>Chat</span>
+        </button>
+        <button class="nav-btn" data-screen="rag-screen">
+            <i class="fas fa-database"></i>
+            <span>RAG</span>
+        </button>
+        <button class="nav-btn" data-screen="dashboard-screen">
+            <i class="fas fa-chart-bar"></i>
+            <span>Dashboard</span>
+        </button>
+    </nav>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
