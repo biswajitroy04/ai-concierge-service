@@ -41,6 +41,7 @@ public class SecurityConfig {
                 .requestMatchers("/chat/guest/**").permitAll()
                 .requestMatchers("/qr/**").permitAll()
                 .requestMatchers("/rag/**").permitAll()
+                .requestMatchers("/whatsapp/**").permitAll()
                 .requestMatchers("/webhook/**").permitAll()
                 .requestMatchers("/health", "/actuator/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

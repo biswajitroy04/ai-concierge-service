@@ -49,7 +49,7 @@ public class ChatController {
         String token = authHeader.replace("Bearer ", "");
         Long reservationId = jwtTokenProvider.getReservationIdFromQrToken(token);
 
-        Reservation reservation = reservationRepository.findById(reservationId)
+        Reservation reservation = reservationRepository.findWithHotelAndGuestById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
 
         String sessionId = request.getSessionId() != null ? request.getSessionId() : UUID.randomUUID().toString();
@@ -71,6 +71,8 @@ public class ChatController {
                     .message(welcomeMessage)
                     .sentiment("POSITIVE")
                     .sentimentScore(0.8)
+                    .guestPhone(reservation.getGuest().getPhone())
+                    .quickActions(conciergeAiService.defaultQuickActions())
                     .escalated(false)
                     .build();
 

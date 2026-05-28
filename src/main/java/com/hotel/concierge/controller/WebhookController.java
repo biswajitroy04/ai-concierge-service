@@ -22,11 +22,15 @@ public class WebhookController {
     public ResponseEntity<String> handleWhatsAppWebhook(
             @RequestParam("From") String from,
             @RequestParam("Body") String body,
+            @RequestParam(value = "To", required = false) String to,
+            @RequestParam(value = "MessageSid", required = false) String messageSid,
+            @RequestParam(value = "ButtonText", required = false) String buttonText,
             @RequestParam(value = "ProfileName", required = false) String profileName) {
 
-        log.info("WhatsApp webhook received from: {}", from);
+        log.info("WhatsApp webhook received from={}, to={}, sid={}, body={}", from, to, messageSid, body);
 
-        String response = whatsAppService.handleIncomingMessage(from, body, profileName);
+        String inboundMessage = buttonText != null && !buttonText.isBlank() ? buttonText : body;
+        String response = whatsAppService.handleIncomingMessage(from, inboundMessage, profileName);
 
         // Return TwiML response
         String twiml = String.format("""

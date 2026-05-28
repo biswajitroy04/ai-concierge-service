@@ -58,7 +58,7 @@ class QrCodeServiceTest {
 
     @Test
     void generateQrCode_shouldReturnValidResponse() {
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
+        when(reservationRepository.findWithHotelAndGuestById(1L)).thenReturn(Optional.of(testReservation));
         when(jwtTokenProvider.generateQrToken(anyLong(), anyLong(), anyLong())).thenReturn("test-token");
         when(jwtTokenProvider.getQrExpirationMs()).thenReturn(604800000L);
 
@@ -66,14 +66,26 @@ class QrCodeServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getToken()).isEqualTo("test-token");
-        assertThat(response.getChatUrl()).contains("test-token");
+        assertThat(response.getChatUrl()).isEqualTo("http://localhost:8080/?token=test-token");
         assertThat(response.getQrCodeBase64()).isNotBlank();
         assertThat(response.getGuestName()).contains("Doe");
     }
 
     @Test
+    void generateQrCode_shouldNormalizeIndexHtmlBaseUrl() {
+        ReflectionTestUtils.setField(qrCodeService, "baseUrl", "https://criteria-copy-murmuring.ngrok-free.dev/index.html");
+        when(reservationRepository.findWithHotelAndGuestById(1L)).thenReturn(Optional.of(testReservation));
+        when(jwtTokenProvider.generateQrToken(anyLong(), anyLong(), anyLong())).thenReturn("test-token");
+        when(jwtTokenProvider.getQrExpirationMs()).thenReturn(604800000L);
+
+        QrCodeResponse response = qrCodeService.generateQrCode(1L);
+
+        assertThat(response.getChatUrl()).isEqualTo("https://criteria-copy-murmuring.ngrok-free.dev/?token=test-token");
+    }
+
+    @Test
     void generateQrCode_shouldThrowWhenReservationNotFound() {
-        when(reservationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(reservationRepository.findWithHotelAndGuestById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> qrCodeService.generateQrCode(999L))
                 .isInstanceOf(RuntimeException.class)
@@ -85,7 +97,7 @@ class QrCodeServiceTest {
         when(jwtTokenProvider.validateToken("valid-token")).thenReturn(true);
         when(jwtTokenProvider.isQrToken("valid-token")).thenReturn(true);
         when(jwtTokenProvider.getReservationIdFromQrToken("valid-token")).thenReturn(1L);
-        when(reservationRepository.findById(1L)).thenReturn(Optional.of(testReservation));
+        when(reservationRepository.findWithHotelAndGuestById(1L)).thenReturn(Optional.of(testReservation));
 
         Reservation result = qrCodeService.validateQrToken("valid-token");
 

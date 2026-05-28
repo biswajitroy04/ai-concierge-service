@@ -80,6 +80,33 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 }
 .btn-outline:hover { background: var(--gold); color: var(--navy-dark); }
 
+.whatsapp-number-group {
+    margin-bottom: 8px;
+}
+
+.whatsapp-number-group input {
+    width: 100%;
+    background: var(--navy-lighter);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    padding: 11px 16px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.whatsapp-number-group input:focus { border-color: var(--gold); }
+.whatsapp-number-group input::placeholder { color: var(--text-muted); }
+
+.whatsapp-number-hint {
+    min-height: 16px;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
 .btn-outline-sm {
     background: transparent;
     color: var(--gold);

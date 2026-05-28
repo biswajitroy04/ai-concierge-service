@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 
@@ -38,7 +40,7 @@ public class QrCodeService {
     private int qrHeight;
 
     public QrCodeResponse generateQrCode(Long reservationId) {
-        Reservation reservation = reservationRepository.findById(reservationId)
+        Reservation reservation = reservationRepository.findWithHotelAndGuestById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Reservation not found: " + reservationId));
 
         // Generate JWT token for QR code
@@ -48,8 +50,8 @@ public class QrCodeService {
                 reservation.getHotel().getId()
         );
 
-        // Build chat URL
-        String chatUrl = baseUrl + "/chat/guest?token=" + token;
+        // Build guest-facing app URL. The app initializes the chat from the token.
+        String chatUrl = normalizeBaseUrl(baseUrl) + "/?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
 
         // Generate QR code image
         String qrCodeBase64 = generateQrImage(chatUrl);
@@ -63,6 +65,7 @@ public class QrCodeService {
                 .expiresInSeconds(expiresInSeconds)
                 .reservationId(reservation.getConfirmationNumber())
                 .guestName(reservation.getGuest().getFullName())
+                .guestPhone(reservation.getGuest().getPhone())
                 .build();
     }
 
@@ -76,7 +79,7 @@ public class QrCodeService {
         }
 
         Long reservationId = jwtTokenProvider.getReservationIdFromQrToken(token);
-        return reservationRepository.findById(reservationId)
+        return reservationRepository.findWithHotelAndGuestById(reservationId)
                 .orElseThrow(() -> new RuntimeException("Reservation not found for token"));
     }
 
@@ -99,5 +102,19 @@ public class QrCodeService {
             log.error("Failed to generate QR code: {}", e.getMessage());
             throw new RuntimeException("QR code generation failed", e);
         }
+    }
+
+    private String normalizeBaseUrl(String configuredBaseUrl) {
+        String normalized = configuredBaseUrl == null ? "" : configuredBaseUrl.trim();
+
+        if (normalized.endsWith("/index.html")) {
+            normalized = normalized.substring(0, normalized.length() - "/index.html".length());
+        }
+
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized;
     }
 }
