@@ -121,19 +121,24 @@ public class ConciergeAiService {
 
     private ConciergeAssistant getOrCreateAssistant(String sessionId, Reservation reservation) {
         return assistantCache.computeIfAbsent(sessionId, key -> {
-            String systemPrompt = buildSystemPrompt(reservation);
+            try {
+                String systemPrompt = buildSystemPrompt(reservation);
 
-            MessageWindowChatMemory memory = MessageWindowChatMemory.withMaxMessages(20);
-            memory.add(dev.langchain4j.data.message.SystemMessage.from(systemPrompt));
+                MessageWindowChatMemory memory = MessageWindowChatMemory.withMaxMessages(20);
+                memory.add(dev.langchain4j.data.message.SystemMessage.from(systemPrompt));
 
-            // Create per-session tools bound to this reservation
-            var tools = conciergeToolsFactory.createForSession(reservation.getId(), sessionId);
+                // Create per-session tools bound to this reservation
+                var tools = conciergeToolsFactory.createForSession(reservation.getId(), sessionId);
 
-            return AiServices.builder(ConciergeAssistant.class)
-                    .chatLanguageModel(chatLanguageModel)
-                    .chatMemory(memory)
-                    .tools(tools)
-                    .build();
+                return AiServices.builder(ConciergeAssistant.class)
+                        .chatLanguageModel(chatLanguageModel)
+                        .chatMemory(memory)
+                        .tools(tools)
+                        .build();
+            } catch (Exception e) {
+                log.error("Failed to create AI assistant for session {}: {}", sessionId, e.getMessage(), e);
+                throw new RuntimeException("AI assistant initialization failed", e);
+            }
         });
     }
 
@@ -141,20 +146,20 @@ public class ConciergeAiService {
         Guest guest = reservation.getGuest();
         Hotel hotel = reservation.getHotel();
 
-        return String.format("""
-                You are an AI concierge for %s, a luxury %d-star hotel.
+        String template = """
+                You are an AI concierge for {{HOTEL_NAME}}, a luxury {{STAR_RATING}}-star hotel.
                 
                 CURRENT GUEST CONTEXT:
-                - Guest: %s (Loyalty: %s, Total stays: %d)
-                - Room: %s (%s, Floor %d)
-                - Stay: %s to %s
-                - Special Requests: %s
-                - Preferred Language: %s
-                - Dietary Restrictions: %s
+                - Guest: {{GUEST_NAME}} (Loyalty: {{LOYALTY_TIER}}, Total stays: {{TOTAL_STAYS}})
+                - Room: {{ROOM_NUMBER}} ({{ROOM_TYPE}}, Floor {{FLOOR_NUMBER}})
+                - Stay: {{CHECK_IN_DATE}} to {{CHECK_OUT_DATE}}
+                - Special Requests: {{SPECIAL_REQUESTS}}
+                - Preferred Language: {{PREFERRED_LANGUAGE}}
+                - Dietary Restrictions: {{DIETARY_RESTRICTIONS}}
                 
                 HOTEL DETAILS:
-                - Check-in: %s, Check-out: %s
-                - Late checkout fee: $%.0f (max until %d:00)
+                - Check-in: {{CHECK_IN_TIME}}, Check-out: {{CHECK_OUT_TIME}}
+                - Late checkout fee: ${{LATE_CHECKOUT_FEE}} (max until {{MAX_LATE_HOUR}}:00)
                 
                 INSTRUCTIONS:
                 1. Be warm, professional, and personalized. Use the guest's name naturally.
@@ -168,6 +173,41 @@ public class ConciergeAiService {
                 9. Keep responses concise but helpful. Use emojis sparingly for warmth.
                 10. Never reveal you are an AI unless directly asked. Present as "your concierge."
                 
+                SCOPE & BOUNDARIES:
+                You are ONLY a hotel concierge. You can help with:
+                ✓ Hotel services (housekeeping, room issues, amenities, WiFi, parking)
+                ✓ Dining (restaurant reservations, menus, menu items, prices, hours, dietary needs)
+                ✓ Spa & wellness (bookings, services, pricing, hours, treatments)
+                ✓ Local recommendations (restaurants, attractions, transport, shopping)
+                ✓ Stay management (late checkout, check-in/out info, billing questions)
+                ✓ Special occasions (celebrations, arrangements)
+                ✓ Hotel policies (cancellation, pets, smoking, pool hours, etc.)
+                ✓ General travel tips relevant to the guest's stay
+                
+                These are ALL in-scope and you MUST answer them using the hotel knowledge provided in context.
+                
+                You CANNOT and MUST NOT help with:
+                ✗ General knowledge questions unrelated to the hotel (history, science, math, trivia)
+                ✗ Personal advice (medical, legal, financial, relationship)
+                ✗ Technical help (coding, software, IT support)
+                ✗ Political, religious, or controversial topics
+                ✗ Content completely unrelated to hospitality or the guest's stay
+                
+                OFF-TOPIC HANDLING:
+                ONLY use this response if the question is COMPLETELY unrelated to the hotel, dining, spa, or guest services:
+                "I appreciate your curiosity! However, as your hotel concierge, I'm best equipped to help with your stay experience — dining, spa, local recommendations, room services, and more. Is there anything I can assist you with for your time at {{HOTEL_NAME}}?"
+                
+                IMPORTANT: Questions about menus, restaurant hours, spa services, hotel amenities, policies, or anything in the RELEVANT HOTEL KNOWLEDGE section are ALWAYS in-scope. Answer them fully using the provided context.
+                
+                FOOD & MENU QUESTIONS:
+                Any question about food, dishes, ingredients, dietary options, menu items, or "do you have X" where X is a food item is ALWAYS a dining question. Search the provided hotel knowledge for relevant menu items and answer helpfully. If the specific item isn't on the menu, say so and suggest alternatives from the menu.
+                
+                ACCURACY:
+                - Use the hotel knowledge base context (provided below your messages) to answer guest questions.
+                - If the knowledge base contains the answer, provide it confidently with details.
+                - If you genuinely don't have specific information, say so and offer to connect with the relevant department.
+                - Never invent information that contradicts the provided context.
+                
                 AVAILABLE TOOLS:
                 - createHousekeepingRequest: For towels, cleaning, amenities, maintenance
                 - bookSpaAppointment: ONLY for spa/wellness/massage bookings (NOT restaurants)
@@ -178,17 +218,30 @@ public class ConciergeAiService {
                 - escalateToHumanAgent: When guest needs human assistance
                 
                 IMPORTANT: Use bookRestaurantReservation for dining/restaurant requests. Use bookSpaAppointment ONLY for spa treatments and massages.
-                """,
-                hotel.getName(), hotel.getStarRating(),
-                guest.getFullName(), guest.getLoyaltyTier(), guest.getTotalStays(),
-                reservation.getRoomNumber(), reservation.getRoomType(), reservation.getFloorNumber(),
-                reservation.getCheckInDate(), reservation.getCheckOutDate(),
-                reservation.getSpecialRequests() != null ? reservation.getSpecialRequests() : "None",
-                guest.getPreferredLanguage(),
-                guest.getDietaryRestrictions() != null ? guest.getDietaryRestrictions() : "None",
-                hotel.getCheckInTime(), hotel.getCheckOutTime(),
-                hotel.getLateCheckoutFee(), hotel.getMaxLateCheckoutHour()
-        );
+                """;
+
+        return template
+                .replace("{{HOTEL_NAME}}", safe(hotel.getName()))
+                .replace("{{STAR_RATING}}", String.valueOf(hotel.getStarRating()))
+                .replace("{{GUEST_NAME}}", safe(guest.getFullName()))
+                .replace("{{LOYALTY_TIER}}", safe(guest.getLoyaltyTier()))
+                .replace("{{TOTAL_STAYS}}", String.valueOf(guest.getTotalStays()))
+                .replace("{{ROOM_NUMBER}}", safe(reservation.getRoomNumber()))
+                .replace("{{ROOM_TYPE}}", safe(reservation.getRoomType()))
+                .replace("{{FLOOR_NUMBER}}", String.valueOf(reservation.getFloorNumber()))
+                .replace("{{CHECK_IN_DATE}}", safe(reservation.getCheckInDate()))
+                .replace("{{CHECK_OUT_DATE}}", safe(reservation.getCheckOutDate()))
+                .replace("{{SPECIAL_REQUESTS}}", reservation.getSpecialRequests() != null ? reservation.getSpecialRequests() : "None")
+                .replace("{{PREFERRED_LANGUAGE}}", safe(guest.getPreferredLanguage()))
+                .replace("{{DIETARY_RESTRICTIONS}}", guest.getDietaryRestrictions() != null ? guest.getDietaryRestrictions() : "None")
+                .replace("{{CHECK_IN_TIME}}", safe(hotel.getCheckInTime()))
+                .replace("{{CHECK_OUT_TIME}}", safe(hotel.getCheckOutTime()))
+                .replace("{{LATE_CHECKOUT_FEE}}", String.valueOf(hotel.getLateCheckoutFee() != null ? hotel.getLateCheckoutFee().intValue() : 0))
+                .replace("{{MAX_LATE_HOUR}}", String.valueOf(hotel.getMaxLateCheckoutHour() != null ? hotel.getMaxLateCheckoutHour() : 14));
+    }
+
+    private String safe(Object value) {
+        return value != null ? value.toString() : "N/A";
     }
 
     private Conversation createConversation(String sessionId, Reservation reservation) {
