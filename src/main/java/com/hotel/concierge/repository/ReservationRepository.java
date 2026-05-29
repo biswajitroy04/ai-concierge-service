@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
@@ -19,6 +20,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Query("SELECT r FROM Reservation r WHERE r.hotel.id = :hotelId AND r.checkInDate <= :date AND r.checkOutDate >= :date AND r.status = 'CHECKED_IN'")
     List<Reservation> findCurrentGuestsByHotel(@Param("hotelId") Long hotelId, @Param("date") LocalDate date);
+
+    @Query("SELECT r FROM Reservation r WHERE r.checkInDate <= :date AND r.checkOutDate >= :date")
+    List<Reservation> findCurrentReservations(@Param("date") LocalDate date);
 
     @Query("SELECT r FROM Reservation r WHERE r.hotel.id = :hotelId AND r.status = 'CHECKED_IN'")
     List<Reservation> findCheckedInByHotel(@Param("hotelId") Long hotelId);

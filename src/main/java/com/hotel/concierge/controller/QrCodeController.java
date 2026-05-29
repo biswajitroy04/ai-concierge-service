@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -23,9 +23,9 @@ public class QrCodeController {
     private final ReservationRepository reservationRepository;
 
     @GetMapping("/reservations")
-    @Operation(summary = "List all reservations available for QR generation")
+    @Operation(summary = "List reservations where today falls between check-in and check-out dates")
     public ResponseEntity<List<Map<String, Object>>> listReservations() {
-        List<Reservation> reservations = reservationRepository.findAll();
+        List<Reservation> reservations = reservationRepository.findCurrentReservations(LocalDate.now());
         List<Map<String, Object>> result = reservations.stream()
                 .map(r -> Map.<String, Object>of(
                         "id", r.getId(),

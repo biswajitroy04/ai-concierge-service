@@ -32,14 +32,14 @@ spring:
 langchain4j:
   open-ai:
     chat-model:
-      api-key: ${OPENAI_API_KEY:}
+      api-key: ${OPENAI_API_KEY:USE_YOUR_OWN_KEY}
       model-name: gpt-4o-mini
       temperature: 0.7
       max-tokens: 2048
       log-requests: true
       log-responses: false
     embedding-model:
-      api-key: ${OPENAI_API_KEY:}
+      api-key: ${OPENAI_API_KEY:USE_YOUR_OWN_KEY}
       model-name: text-embedding-3-small
 
 # Weaviate Configuration
@@ -64,8 +64,8 @@ qr:
 
 # Twilio WhatsApp Configuration
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID:}
-  auth-token: ${TWILIO_AUTH_TOKEN:}
+  account-sid: ${TWILIO_ACCOUNT_SID:USE_YOUR_OWN_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN:USE_YOUR_OWN_TOKEN}
   whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:+14155238886}
 
 # Rate Limiting
