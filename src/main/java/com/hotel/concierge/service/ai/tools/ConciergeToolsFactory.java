@@ -17,6 +17,7 @@ public class ConciergeToolsFactory {
     private final EscalationTicketRepository escalationRepo;
     private final ConversationRepository conversationRepo;
     private final RestaurantBookingRepository restaurantBookingRepo;
+    private final ShuttleBookingRepository shuttleBookingRepo;
 
     public ConciergeTools createForSession(Long reservationId, String sessionId) {
         return new ConciergeTools(
@@ -27,7 +28,8 @@ public class ConciergeToolsFactory {
                 reservationRepo,
                 escalationRepo,
                 conversationRepo,
-                restaurantBookingRepo
+                restaurantBookingRepo,
+                shuttleBookingRepo
         );
     }
 }

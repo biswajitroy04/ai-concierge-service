@@ -17,6 +17,18 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ShuttleBookingNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleShuttleBookingNotFound(ShuttleBookingNotFoundException ex) {
+        log.error("Shuttle booking not found: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ShuttleBookingAccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleShuttleBookingAccessDenied(ShuttleBookingAccessDeniedException ex) {
+        log.error("Shuttle booking access denied: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         log.error("Runtime exception: {}", ex.getMessage());

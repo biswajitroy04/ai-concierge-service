@@ -231,6 +231,36 @@ Guest: "This is unacceptable, get me a manager!"
         4. Returns message: "I've connected you with our guest services team..."
 ```
 
+### Tool: bookAirportShuttle
+
+**Triggered when:** Guest asks to book a shuttle to/from the airport or requests transportation.
+
+```
+Guest: "I need a shuttle to JFK airport tomorrow at 9am"
+    → LLM calls bookAirportShuttle("The Grand Meridian", "JFK Terminal 4", "2026-06-01", "09:00", 2, "+1-212-555-0100", "")
+        1. Parse pickupDate + "T" + pickupTime → LocalDateTime
+        2. Validate pickupDatetime is in the future — return error string if past (no DB write)
+        3. Validate passengerCount in [1, 10] — return error string if invalid (no DB write)
+        4. Load Reservation from DB
+        5. Generate bookingReference: "SHU-{reservationId}-{count+1}"
+        6. Build and save ShuttleBooking (status = REQUESTED)
+        7. Return confirmation string with bookingReference
+    → LLM presents confirmation to guest with reference number
+```
+
+### Tool: cancelAirportShuttle
+
+**Triggered when:** Guest wants to cancel an existing shuttle booking and provides a reference number.
+
+```
+Guest: "Please cancel my shuttle booking SHU-1-001"
+    → LLM calls cancelAirportShuttle("SHU-1-001")
+        1. Find booking by bookingReference → return "Booking not found" string if absent
+        2. Check status is REQUESTED or CONFIRMED → return "Cannot cancel" string if not eligible
+        3. Set status = CANCELLED, save
+        4. Return cancellation confirmation string
+```
+
 ---
 
 ## 4. Sentiment Analysis & Auto-Escalation
@@ -387,14 +417,16 @@ VectorSearchService.buildRagContext(userQuery)
 ### Admin Operations
 
 ```
-GET  /admin/reservations/hotel/{hotelId}     → All checked-in reservations
-GET  /admin/conversations/hotel/{hotelId}    → Active conversations
-GET  /admin/escalations/hotel/{hotelId}      → Open/in-progress escalation tickets
-PUT  /admin/escalations/{id}/resolve         → Mark ticket resolved + add notes
-GET  /admin/housekeeping/hotel/{hotelId}     → Pending housekeeping requests
-PUT  /admin/housekeeping/{id}/status         → Update request status
-GET  /admin/spa-bookings/hotel/{hotelId}     → Today's confirmed spa bookings
-GET  /admin/restaurant-bookings/hotel/{id}   → All restaurant bookings
+GET  /admin/reservations/hotel/{hotelId}              → All checked-in reservations
+GET  /admin/conversations/hotel/{hotelId}             → Active conversations
+GET  /admin/escalations/hotel/{hotelId}               → Open/in-progress escalation tickets
+PUT  /admin/escalations/{id}/resolve                  → Mark ticket resolved + add notes
+GET  /admin/housekeeping/hotel/{hotelId}              → Pending housekeeping requests
+PUT  /admin/housekeeping/{id}/status                  → Update request status
+GET  /admin/spa-bookings/hotel/{hotelId}              → Today's confirmed spa bookings
+GET  /admin/restaurant-bookings/hotel/{id}            → All restaurant bookings
+GET  /admin/shuttle-bookings/hotel/{hotelId}          → All shuttle bookings (filterable by status/date)
+PUT  /admin/shuttle-bookings/{id}/status              → Update shuttle booking status
 ```
 
 ### Real-time Updates (WebSocket)
@@ -461,7 +493,7 @@ AuditAspect intercepts all @PostMapping, @PutMapping, @DeleteMapping:
 | `EmbeddingModel` | OpenAI text-embedding-3-small, used for RAG embeddings |
 | `AiServices.builder()` | Builds per-session assistant with memory + tools |
 | `MessageWindowChatMemory` | 20-message sliding window per session |
-| `@Tool` annotations | 7 tools on ConciergeTools, LLM decides when to call |
+| `@Tool` annotations | 9 tools on ConciergeTools, LLM decides when to call |
 | `DocumentSplitters.recursive()` | Chunks documents (500 chars, 50 overlap) for RAG |
 | `SystemMessage` | Dynamic system prompt with guest context injected |
 
