@@ -7,6 +7,7 @@ const API_BASE = '';
 let currentToken = null;
 let sessionId = null;
 let currentScreen = 'onboarding-screen';
+let whatsappLink = null;
 
 // ============ INITIALIZATION ============
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,10 +32,14 @@ function initEventListeners() {
     document.getElementById('chat-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
+    document.getElementById('btn-switch-whatsapp').addEventListener('click', startWhatsAppSession);
     document.getElementById('btn-back').addEventListener('click', () => {
         // Clear session so next login starts fresh
         currentToken = null;
         sessionId = null;
+        whatsappLink = null;
+        setWhatsAppLink(null);
+        setWhatsAppNumber('', false);
         localStorage.removeItem('concierge_token');
         localStorage.removeItem('concierge_session');
         showScreen('onboarding-screen');
@@ -77,6 +82,111 @@ function initEventListeners() {
     });
 }
 
+function setWhatsAppLink(link) {
+    whatsappLink = link;
+    const chatActions = document.getElementById('chat-actions');
+    if (!chatActions) return;
+
+    if (link || (currentToken && currentToken !== 'demo-token')) {
+        chatActions.style.display = 'block';
+    } else {
+        chatActions.style.display = 'none';
+    }
+}
+
+function setWhatsAppNumber(phone, fromReservation) {
+    const input = document.getElementById('whatsapp-number-input');
+    const hint = document.getElementById('whatsapp-number-hint');
+    if (!input || !hint) return;
+
+    if (phone && phone.trim()) {
+        input.value = phone.trim();
+        hint.textContent = fromReservation
+            ? 'Pre-filled from the reservation. You can edit it before continuing.'
+            : '';
+    } else {
+        input.value = '';
+        hint.textContent = currentToken && currentToken !== 'demo-token'
+            ? 'Enter the WhatsApp number you want to use for this stay.'
+            : '';
+    }
+}
+
+async function fetchWhatsAppLink(token) {
+    if (!token || token === 'demo-token') {
+        setWhatsAppLink(null);
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({ token });
+        if (sessionId) {
+            params.set('sessionId', sessionId);
+        }
+        const response = await fetch(`${API_BASE}/whatsapp/link?${params.toString()}`);
+        if (!response.ok) throw new Error('No WhatsApp link available');
+        const data = await response.json();
+        if (data.sessionId) {
+            sessionId = data.sessionId;
+            localStorage.setItem('concierge_session', sessionId);
+        }
+        setWhatsAppLink(data.whatsappLink);
+    } catch (error) {
+        setWhatsAppLink(null);
+    }
+}
+
+async function startWhatsAppSession() {
+    if (!currentToken || currentToken === 'demo-token') {
+        return;
+    }
+
+    const phoneInput = document.getElementById('whatsapp-number-input');
+    const guestWhatsAppNumber = phoneInput.value.trim();
+    if (!guestWhatsAppNumber) {
+        phoneInput.focus();
+        return;
+    }
+
+    const button = document.getElementById('btn-switch-whatsapp');
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+
+    try {
+        const response = await fetch(`${API_BASE}/whatsapp/session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: currentToken,
+                sessionId,
+                whatsappNumber: guestWhatsAppNumber
+            })
+        });
+
+        if (!response.ok) throw new Error('Could not start WhatsApp session');
+
+        const data = await response.json();
+        if (data.sessionId) {
+            sessionId = data.sessionId;
+            localStorage.setItem('concierge_session', sessionId);
+        }
+        setWhatsAppLink(data.whatsappLink);
+        if (data.whatsappLink) {
+            window.open(data.whatsappLink, '_blank');
+        }
+    } catch (error) {
+        if (whatsappLink) {
+            window.open(whatsappLink, '_blank');
+        } else {
+            phoneInput.focus();
+        }
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+    }
+}
+
 // ============ SCREEN MANAGEMENT ============
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -100,8 +210,13 @@ function showScreen(screenId) {
 }
 
 function checkExistingSession() {
-    // Disabled: always show onboarding screen on page load
-    // Users must enter token or use admin login each time
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) return;
+
+    const tokenInput = document.getElementById('token-input');
+    tokenInput.value = token;
+    handleTokenConnect();
 }
 
 // ============ QR / TOKEN CONNECTION ============
@@ -126,6 +241,8 @@ async function handleTokenConnect() {
 
         showScreen('chat-screen');
         addMessage('assistant', data.message);
+        setWhatsAppNumber(data.guestPhone, Boolean(data.guestPhone));
+        setWhatsAppLink(null);
     } catch (error) {
         // In demo mode, proceed anyway
         startDemoMode();
@@ -139,6 +256,8 @@ function startDemoMode() {
     localStorage.setItem('concierge_session', sessionId);
 
     showScreen('chat-screen');
+    setWhatsAppLink(null);
+    setWhatsAppNumber('', false);
 
     const welcomeMsg = `Welcome Mr. Roy! 🌟
 
@@ -168,6 +287,7 @@ async function loadReservations() {
         reservations.forEach(r => {
             const option = document.createElement('option');
             option.value = r.id;
+            option.dataset.guestPhone = r.guestPhone || '';
             option.textContent = `${r.confirmationNumber} — ${r.guestName} (Room ${r.roomNumber})`;
             select.appendChild(option);
         });
@@ -224,6 +344,7 @@ async function handleGenerateQr() {
 
         // Auto-fill the token input so user can also click to start chat
         document.getElementById('token-input').value = data.token;
+        setWhatsAppNumber(data.guestPhone || select.options[select.selectedIndex].dataset.guestPhone, Boolean(data.guestPhone || select.options[select.selectedIndex].dataset.guestPhone));
 
     } catch (error) {
         // Demo fallback - show a placeholder QR

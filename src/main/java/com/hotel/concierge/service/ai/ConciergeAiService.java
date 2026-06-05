@@ -248,7 +248,7 @@ public class ConciergeAiService {
         Conversation conversation = Conversation.builder()
                 .sessionId(sessionId)
                 .reservation(reservation)
-                .channel("WEB")
+                .channel(sessionId.startsWith("whatsapp-") ? "WHATSAPP" : "WEB")
                 .status(Conversation.ConversationStatus.ACTIVE)
                 .language(reservation.getGuest().getPreferredLanguage())
                 .build();
@@ -273,7 +273,7 @@ public class ConciergeAiService {
         return true;
     }
 
-    private List<ChatResponse.QuickAction> generateQuickActions(String response, Reservation reservation) {
+    public List<ChatResponse.QuickAction> defaultQuickActions() {
         List<ChatResponse.QuickAction> actions = new ArrayList<>();
         actions.add(ChatResponse.QuickAction.builder().label("Housekeeping").action("housekeeping").icon("🛎️").build());
         actions.add(ChatResponse.QuickAction.builder().label("Spa").action("spa").icon("💆").build());
@@ -281,6 +281,10 @@ public class ConciergeAiService {
         actions.add(ChatResponse.QuickAction.builder().label("Late Checkout").action("late_checkout").icon("🕐").build());
         actions.add(ChatResponse.QuickAction.builder().label("Attractions").action("attractions").icon("🗺️").build());
         return actions;
+    }
+
+    private List<ChatResponse.QuickAction> generateQuickActions(String response, Reservation reservation) {
+        return defaultQuickActions();
     }
 
     private List<ChatResponse.RecommendationCard> generateRecommendations(String response, Reservation reservation) {

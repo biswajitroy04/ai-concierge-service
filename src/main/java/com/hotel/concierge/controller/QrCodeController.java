@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
+
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,15 +29,18 @@ public class QrCodeController {
     public ResponseEntity<List<Map<String, Object>>> listReservations() {
         List<Reservation> reservations = reservationRepository.findCurrentReservations(LocalDate.now());
         List<Map<String, Object>> result = reservations.stream()
-                .map(r -> Map.<String, Object>of(
-                        "id", r.getId(),
-                        "confirmationNumber", r.getConfirmationNumber(),
-                        "guestName", r.getGuest().getFullName(),
-                        "roomNumber", r.getRoomNumber(),
-                        "checkInDate", r.getCheckInDate().toString(),
-                        "checkOutDate", r.getCheckOutDate().toString(),
-                        "status", r.getStatus().name()
-                ))
+                .map(r -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("id", r.getId());
+                    item.put("confirmationNumber", r.getConfirmationNumber());
+                    item.put("guestName", r.getGuest().getFullName());
+                    item.put("guestPhone", r.getGuest().getPhone());
+                    item.put("roomNumber", r.getRoomNumber());
+                    item.put("checkInDate", r.getCheckInDate().toString());
+                    item.put("checkOutDate", r.getCheckOutDate().toString());
+                    item.put("status", r.getStatus().name());
+                    return item;
+                })
                 .toList();
         return ResponseEntity.ok(result);
     }
@@ -52,12 +57,13 @@ public class QrCodeController {
     public ResponseEntity<?> validateToken(@RequestParam String token) {
         try {
             var reservation = qrCodeService.validateQrToken(token);
-            return ResponseEntity.ok().body(Map.of(
-                    "valid", true,
-                    "guestName", reservation.getGuest().getFullName(),
-                    "roomNumber", reservation.getRoomNumber(),
-                    "confirmationNumber", reservation.getConfirmationNumber()
-            ));
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("valid", true);
+            body.put("guestName", reservation.getGuest().getFullName());
+            body.put("guestPhone", reservation.getGuest().getPhone());
+            body.put("roomNumber", reservation.getRoomNumber());
+            body.put("confirmationNumber", reservation.getConfirmationNumber());
+            return ResponseEntity.ok().body(body);
         } catch (Exception e) {
             return ResponseEntity.status(401).body(Map.of(
                     "valid", false,

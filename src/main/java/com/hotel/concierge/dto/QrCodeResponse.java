@@ -17,4 +17,5 @@ public class QrCodeResponse {
     private Long expiresInSeconds;
     private String reservationId;
     private String guestName;
+    private String guestPhone;
 }
