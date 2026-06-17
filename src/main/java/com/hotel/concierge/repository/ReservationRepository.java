@@ -1,6 +1,7 @@
 package com.hotel.concierge.repository;
 
 import com.hotel.concierge.model.Reservation;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,10 @@ import java.util.Optional;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
+    @EntityGraph(attributePaths = {"hotel", "guest"})
+    Optional<Reservation> findWithHotelAndGuestById(Long id);
+
+    @EntityGraph(attributePaths = {"hotel", "guest"})
     Optional<Reservation> findByConfirmationNumber(String confirmationNumber);
 
     @Query("SELECT r FROM Reservation r WHERE r.guest.id = :guestId AND r.status IN ('CONFIRMED', 'CHECKED_IN') ORDER BY r.checkInDate DESC")
@@ -26,6 +31,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Query("SELECT r FROM Reservation r WHERE r.hotel.id = :hotelId AND r.status = 'CHECKED_IN'")
     List<Reservation> findCheckedInByHotel(@Param("hotelId") Long hotelId);
+
+    @EntityGraph(attributePaths = {"hotel", "guest"})
+    List<Reservation> findByStatus(Reservation.ReservationStatus status);
 
     @Query("SELECT COUNT(r) FROM Reservation r WHERE r.hotel.id = :hotelId AND r.checkOutDate = :date AND r.lateCheckoutApproved = false")
     long countEligibleForLateCheckout(@Param("hotelId") Long hotelId, @Param("date") LocalDate date);

@@ -2,10 +2,10 @@
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 
 WORKDIR /app
-COPY backend/pom.xml .
+COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-COPY backend/src ./src
+COPY src ./src
 RUN mvn package -DskipTests -B
 
 # Runtime stage
@@ -16,7 +16,6 @@ RUN addgroup -S concierge && adduser -S concierge -G concierge
 WORKDIR /app
 
 COPY --from=builder /app/target/*.jar app.jar
-COPY frontend/ /app/static/
 
 RUN chown -R concierge:concierge /app
 USER concierge

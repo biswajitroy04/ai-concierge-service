@@ -17,6 +17,7 @@ public class ChatResponse {
     private String message;
     private String sentiment;
     private Double sentimentScore;
+    private String guestPhone;
     private List<QuickAction> quickActions;
     private List<RecommendationCard> recommendations;
     private boolean escalated;
