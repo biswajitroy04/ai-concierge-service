@@ -113,6 +113,7 @@ public class ConciergeAiService {
                 "• 💆 Spa bookings\n" +
                 "• 🍽️ Restaurant reservations\n" +
                 "• 🕐 Late checkout requests\n" +
+                "• ✈️ Book airport shuttle\n" +
                 "• 🗺️ Local recommendations\n\n" +
                 "How may I assist you today?",
                 guest.getFullName(), checkIn, checkOut, reservation.getRoomNumber()
@@ -216,6 +217,8 @@ public class ConciergeAiService {
                 - confirmLateCheckout: After guest agrees, confirm and record the late checkout
                 - recommendNearbyAttractions: For local recommendations
                 - escalateToHumanAgent: When guest needs human assistance
+                - bookAirportShuttle: Book an airport shuttle (pickup location, dropoff location, date, time, passenger count, optional special instructions)
+                - cancelAirportShuttle: Cancel an existing airport shuttle booking by booking reference
                 
                 IMPORTANT: Use bookRestaurantReservation for dining/restaurant requests. Use bookSpaAppointment ONLY for spa treatments and massages.
                 """;
@@ -279,6 +282,7 @@ public class ConciergeAiService {
         actions.add(ChatResponse.QuickAction.builder().label("Spa").action("spa").icon("💆").build());
         actions.add(ChatResponse.QuickAction.builder().label("Restaurant").action("restaurant").icon("🍽️").build());
         actions.add(ChatResponse.QuickAction.builder().label("Late Checkout").action("late_checkout").icon("🕐").build());
+        actions.add(ChatResponse.QuickAction.builder().label("Book airport shuttle").action("airport_shuttle").icon("✈️").build());
         actions.add(ChatResponse.QuickAction.builder().label("Attractions").action("attractions").icon("🗺️").build());
         return actions;
     }

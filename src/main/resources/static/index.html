@@ -137,6 +137,9 @@
                 <button class="quick-btn" data-action="late_checkout">
                     <i class="fas fa-clock"></i> Late Checkout
                 </button>
+                <button class="quick-btn" data-action="shuttle">
+                    <i class="fas fa-plane"></i> Shuttle
+                </button>
                 <button class="quick-btn" data-action="attractions">
                     <i class="fas fa-map-marker-alt"></i> Attractions
                 </button>
@@ -293,9 +296,20 @@
                         <!-- Populated dynamically -->
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+
+                <!-- Airport Shuttle Bookings Panel -->
+                <div class="dash-panel glass-card">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-plane"></i> Airport Shuttle Bookings</h3>
+                    </div>
+                    <div class="panel-content" id="shuttle-bookings-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+            </div><!-- end dashboard-grid -->
+        </div><!-- end dashboard-container -->
+    </div><!-- end dashboard-screen -->
 
     <!-- Admin Login Modal -->
     <div id="admin-login-modal" class="modal" style="display: none;">

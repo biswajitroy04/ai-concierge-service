@@ -392,7 +392,10 @@ async function sendMessage() {
 
         hideTypingIndicator();
 
-        if (!response.ok) throw new Error('Chat request failed');
+        if (!response.ok) {
+            console.error('Chat API error:', response.status, response.statusText);
+            throw new Error(`Chat request failed: ${response.status}`);
+        }
 
         const data = await response.json();
         addMessage('assistant', data.message);
@@ -402,7 +405,8 @@ async function sendMessage() {
         }
     } catch (error) {
         hideTypingIndicator();
-        addMessage('assistant', 'I apologize for the inconvenience. Let me connect you with our team.');
+        console.error('Chat error:', error);
+        addMessage('assistant', 'I apologize for the inconvenience. Let me connect you with our front desk team who can assist you further.');
     }
 }
 
@@ -463,6 +467,7 @@ function handleQuickAction(action) {
         spa: "I'm interested in booking a spa treatment. What's available?",
         restaurant: "I'd like to make a restaurant reservation for tonight.",
         late_checkout: "Is it possible to get a late checkout?",
+        shuttle: "I need to book an airport shuttle. Can you help me?",
         attractions: "What are some good attractions or restaurants nearby?"
     };
 
@@ -512,6 +517,24 @@ Given your vegetarian preference, I'd recommend the Vegetable Tasting Menu at Th
 What time would you prefer, and for how many guests?`;
     }
 
+    if (lower.includes('shuttle') || lower.includes('airport') || lower.includes('transportation')) {
+        return `Absolutely, I can help you arrange airport transportation! ✈️
+
+Our premium shuttle service offers:
+• **Shared Shuttle** - $35 per person, departs every 2 hours
+• **Private Shuttle** - $120 flat rate, on-demand pickup
+• **Limousine Service** - $150, includes complimentary beverages
+
+All services include:
+✓ Professional drivers
+✓ Real-time flight tracking
+✓ Meet & greet service
+✓ Luggage assistance
+✓ WiFi-enabled vehicles
+
+When is your flight, and how many passengers? Would you prefer pickup from the hotel or at the airport for arrival?`;
+    }
+
     if (lower.includes('late checkout') || lower.includes('checkout')) {
         return `Great news, Mr. Roy! ✨
 
@@ -554,8 +577,8 @@ Is there anything specific about "${message}" you'd like me to assist with? I ca
 • Room services and housekeeping
 • Spa and wellness bookings
 • Restaurant reservations
+• Airport shuttle transportation
 • Local recommendations
-• Transportation arrangements
 • Any other requests
 
 Just let me know how I can make your stay more comfortable!`;
@@ -606,6 +629,7 @@ async function loadDashboardData() {
     loadHousekeepingTickets();
     loadSpaBookings();
     loadRestaurantBookings();
+    loadShuttleBookings();
 }
 
 function renderDashboard(data) {
@@ -732,6 +756,29 @@ async function loadRestaurantBookings() {
         }
     } catch (e) {
         console.log('Could not load restaurant bookings');
+    }
+}
+
+async function loadShuttleBookings() {
+    try {
+        const response = await fetch(`${API_BASE}/admin/shuttle-bookings/hotel/1`);
+        if (!response.ok) return;
+        const bookings = await response.json();
+        const list = document.getElementById('shuttle-bookings-list');
+
+        if (bookings.length > 0) {
+            list.innerHTML = bookings.map(b => `
+                <div class="hk-item">
+                    <div class="guest-name">${b.pickupLocation || 'Pickup'} → ${b.dropoffLocation || 'Dropoff'}</div>
+                    <div class="room-info">Room ${b.reservation?.roomNumber || '-'} • ${new Date(b.pickupDatetime).toLocaleDateString()} at ${new Date(b.pickupDatetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • Passengers: ${b.passengerCount}</div>
+                    <div class="room-info">Status: ${b.status}${b.bookingReference ? ' • ' + b.bookingReference : ''}</div>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">No shuttle bookings</p>';
+        }
+    } catch (e) {
+        console.log('Could not load shuttle bookings');
     }
 }
 

@@ -6,6 +6,7 @@ import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 
@@ -24,6 +25,7 @@ public class ConciergeTools {
     private final EscalationTicketRepository escalationRepo;
     private final ConversationRepository conversationRepo;
     private final RestaurantBookingRepository restaurantBookingRepo;
+    private final ShuttleBookingRepository shuttleBookingRepo;
 
     public ConciergeTools(Long reservationId,
                           String sessionId,
@@ -32,7 +34,8 @@ public class ConciergeTools {
                           ReservationRepository reservationRepo,
                           EscalationTicketRepository escalationRepo,
                           ConversationRepository conversationRepo,
-                          RestaurantBookingRepository restaurantBookingRepo) {
+                          RestaurantBookingRepository restaurantBookingRepo,
+                          ShuttleBookingRepository shuttleBookingRepo) {
         this.reservationId = reservationId;
         this.sessionId = sessionId;
         this.housekeepingRepo = housekeepingRepo;
@@ -41,6 +44,7 @@ public class ConciergeTools {
         this.escalationRepo = escalationRepo;
         this.conversationRepo = conversationRepo;
         this.restaurantBookingRepo = restaurantBookingRepo;
+        this.shuttleBookingRepo = shuttleBookingRepo;
     }
 
     @Tool("Create a housekeeping request for the guest's room. Use for towels, cleaning, amenities, minibar, maintenance requests. Parameters: requestType (e.g. towels, cleaning, minibar), description, priority (LOW, NORMAL, HIGH, URGENT)")
@@ -279,6 +283,77 @@ public class ConciergeTools {
                 "Restaurant: %s\nDate: %s\nTime: %s\nParty size: %d\nBooking #%d\nReservation ID: %d\n" +
                 "Please arrive on time. Enjoy your meal!",
                 restaurantName, bookingDate, bookingTime, booking.getPartySize(), booking.getId(), reservationId);
+    }
+
+    @Tool("Book an airport shuttle for the guest. Required: pickupLocation (e.g. 'Hotel Main Entrance'), dropoffLocation (e.g. 'JFK Terminal 4'), pickupDate (YYYY-MM-DD), pickupTime (HH:MM), passengerCount (1-10). Optional: specialInstructions")
+    public String bookAirportShuttle(String pickupLocation, String dropoffLocation,
+                                     String pickupDate, String pickupTime,
+                                     int passengerCount, String specialInstructions) {
+        log.info("Booking airport shuttle: pickup={}, dropoff={}, date={}, time={}, passengers={}, reservation={}",
+                pickupLocation, dropoffLocation, pickupDate, pickupTime, passengerCount, reservationId);
+
+        // Parse pickup datetime
+        LocalDateTime pickupDatetime;
+        try {
+            pickupDatetime = LocalDateTime.parse(pickupDate + "T" + pickupTime);
+        } catch (DateTimeParseException e) {
+            return "Invalid date or time format. Please provide pickupDate as YYYY-MM-DD and pickupTime as HH:MM.";
+        }
+
+        // Validate pickup datetime is in the future
+        if (!pickupDatetime.isAfter(LocalDateTime.now())) {
+            return "The pickup date and time must be in the future. Please provide a future date and time.";
+        }
+
+        // Validate passenger count
+        if (passengerCount < 1 || passengerCount > 10) {
+            return "Passenger count must be between 1 and 10. Please provide a valid number.";
+        }
+
+        Reservation reservation = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new RuntimeException("Reservation not found"));
+
+        // Generate booking reference
+        String bookingReference = String.format("SHU-%d-%03d",
+                reservationId, shuttleBookingRepo.countByReservationId(reservationId) + 1);
+
+        ShuttleBooking booking = ShuttleBooking.builder()
+                .reservation(reservation)
+                .bookingReference(bookingReference)
+                .pickupLocation(pickupLocation)
+                .dropoffLocation(dropoffLocation)
+                .pickupDatetime(pickupDatetime)
+                .passengerCount(passengerCount)
+                .contactPhone("N/A")
+                .status(ShuttleBooking.BookingStatus.REQUESTED)
+                .specialInstructions(specialInstructions)
+                .build();
+
+        shuttleBookingRepo.save(booking);
+
+        return "Airport shuttle booked successfully! Booking Reference: " + bookingReference +
+                ". Pickup: " + pickupDatetime + " from " + pickupLocation + " to " + dropoffLocation +
+                " for " + passengerCount + " passenger(s). Status: REQUESTED - pending confirmation by hotel staff.";
+    }
+
+    @Tool("Cancel an existing airport shuttle booking. Required: bookingReference (e.g. SHU-42-001)")
+    public String cancelAirportShuttle(String bookingReference) {
+        log.info("Cancelling airport shuttle: bookingReference={}, reservation={}", bookingReference, reservationId);
+
+        ShuttleBooking booking = shuttleBookingRepo.findByBookingReference(bookingReference).orElse(null);
+        if (booking == null) {
+            return "Booking not found: " + bookingReference;
+        }
+
+        if (booking.getStatus() != ShuttleBooking.BookingStatus.REQUESTED
+                && booking.getStatus() != ShuttleBooking.BookingStatus.CONFIRMED) {
+            return "Cannot cancel booking " + bookingReference + " in status " + booking.getStatus();
+        }
+
+        booking.setStatus(ShuttleBooking.BookingStatus.CANCELLED);
+        shuttleBookingRepo.save(booking);
+
+        return "Shuttle booking " + bookingReference + " has been cancelled successfully.";
     }
 
     private int getEstimatedTime(String requestType) {

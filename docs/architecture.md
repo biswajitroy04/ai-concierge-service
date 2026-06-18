@@ -71,11 +71,15 @@ Guest Journey:
 
 ```
 ConciergeTools (LangChain4J @Tool annotations)
-├── createHousekeepingRequest()  → MySQL housekeeping_requests
-├── bookSpaAppointment()         → MySQL spa_bookings
+├── createHousekeepingRequest()    → MySQL housekeeping_requests
+├── bookSpaAppointment()           → MySQL spa_bookings
+├── bookRestaurantReservation()    → MySQL restaurant_bookings
 ├── checkLateCheckoutEligibility() → Business logic + reservation data
-├── recommendNearbyAttractions() → RAG + location context
-└── escalateToHumanAgent()       → escalation_tickets + WebSocket notify
+├── confirmLateCheckout()          → MySQL reservations (late_checkout_*)
+├── recommendNearbyAttractions()   → RAG + location context
+├── escalateToHumanAgent()         → escalation_tickets + WebSocket notify
+├── bookAirportShuttle()           → MySQL shuttle_bookings
+└── cancelAirportShuttle()         → MySQL shuttle_bookings (status → CANCELLED)
 ```
 
 ### RAG Pipeline
@@ -143,10 +147,11 @@ Query Flow:
 ```
 hotels ──────────< reservations >────────── guests
                        │
-          ┌────────────┼────────────┐
-          │            │            │
-   conversations  spa_bookings  housekeeping_requests
-          │                        restaurant_bookings
+          ┌────────────┼─────────────────┐
+          │            │                 │
+   conversations  spa_bookings      housekeeping_requests
+          │       restaurant_bookings
+          │       shuttle_bookings
           │
    ┌──────┴──────┐
    │             │
